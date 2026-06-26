@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>フライング・サンタ</title>
+    <title>santa</title>
     <style>
         * {
             box-sizing: border-box;
@@ -173,7 +173,7 @@
     <span class="score-label">SCORE </span><span id="score">0000</span>
     <span style="margin-left: 15px;"><span class="score-label">BEST </span><span id="bestScore">0000</span></span>
 </div>
-    <div id="message">START<br><span style="font-size:12px; color:#b0bec5;">長押しで上昇、離すと降下。<br>右上の「ホームボタン」を押すか、星を取り逃すと終了。</span></div>
+    <div id="message">START<br><span style="font-size:12px; color:#b0bec5;">長押しで上昇、離すと降下。<br>星を取り逃すと終了。<br>右上のボタンで全画面表示。</span></div>
     
     <div id="player"></div>
     <div id="target"></div>
@@ -242,11 +242,22 @@
 
 
 
-    // 🍏【ここを追加！】それぞれの音量を調節します（0.0 が無音、1.0 が最大音量です）
-    startSound.volume = 0.21;     // きらきら音を21%の大きさに
-    itemSound.volume = 0.12;      // 鈴の音を12%の大きさに（連続で鳴るので小さめが心地よいです）
-    gameoverSound.volume = 0.45;   // きらきら音を45%の大きさに
+    // 📱 スマホ（またはタブレット）かどうかを判定するコード
+    const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
+    if (isMobileDevice) {
+        // 👇 スマホ版の音量を設定（0.0 が消音、1.0 が最大）
+        startSound.volume = 1.0;      // スタートのきらきら音
+        itemSound.volume = 0.6;       // 星アイテム獲得の鈴の音（連続で鳴るので小さめ）
+        gameoverSound.volume = 1.0;   // ゲームオーバーのきらきら音
+    } else {
+    // 👇 PC版の音量を設定（0.0 が消音、1.0 が最大）
+        startSound.volume = 0.07;      // スタートのきらきら音
+        itemSound.volume = 0.04;       // 星アイテム獲得の鈴の音（連続で鳴るので小さめ）
+        gameoverSound.volume = 0.15;   // ゲームオーバーのきらきら音
+    }
+    
+    let isFirstClick = true; // 🎵 【手動追加】最初の1回目のタップかどうかを判定する目印
     let isGameOver = true;
     let score = 0;
     let animationId;
@@ -267,7 +278,7 @@
     const gravity = 0.2;       
     const flyStrength = 0.25;   
     let playerVelocity = 0;    
-    let gameSpeed = 5;
+    let gameSpeed = 5; // ←星アイテムの初期速度
 
     // --- イベントリスナーの設定 ---
     window.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -318,26 +329,36 @@
     });
 
     function handleTouchStart(e) {
-        // ホームボタンを触っている場合は上昇させない
+        // 全画面を触っている場合は上昇させない
         if (e.target.closest('#fullscreenButton')) return;
 
         e.preventDefault();
         if (e.touches.length > 1) return; 
 
-        if (isGameOver) { 
-            // 👇【ここを変更！】タップされた対象が「message」の文字エリアの場合だけリスタートします
-            if (e.target.closest('#message')) {
-                initGame(); 
+        // 🌟 画面中央の「START/RESTART」メッセージを触った時の処理
+        if (e.target.closest('#message')) {
+            // 📱スマホの初回起動時だけの特殊ルート
+            if (isFirstClick) {
+                startSound.volume = 0.0; // 💡 1回目だけ音量を0（無音）にする
+                startSound.play();      // 1回目のタップでスマホの音声ブロックを解除
+                isFirstClick = false;   // 目印を消す（次回からはここを通らない）
+                return;                 // ゲームを開始せずにここで一度処理を止める（2回目のタップを待つ）
             }
-        } else { 
-            // 🍏【追加】もしゲームがまだ始まっていない（最初の状態）なら、きらきら音を鳴らします
-            if (animationId === null) {
-                startSound.currentTime = 0;
-                startSound.play();
-            }
+
+            // 💡 2回目以降のタップ（またはリスタート）の処理
+            startSound.volume = 1.0;    // 本来のスマホ用音量（100%）に戻して鳴らす！
+            startSound.currentTime = 0;
+            startSound.play();
+            initGame(); 
+            return;
+        }
+
+        // 🌟 通常のプレイ中（サンタを上昇させる処理）
+        if (!isGameOver) {
             isPressing = true; 
         }
     }
+
     function handleTouchEnd(e) {
         if (e.touches.length === 0) {
             isPressing = false;
@@ -349,20 +370,20 @@
         if (e.target.closest('#fullscreenButton')) return;
         if (e.button === 2) return; 
 
-        if (isGameOver) { 
-            // 👇【ここを変更！】タップされた対象が「message」の文字エリアの場合だけリスタートします
-            if (e.target.closest('#message')) {
-                initGame(); 
-            }
-        } else { 
-            // 🍏【追加】もしゲームがまだ始まっていない（最初の状態）なら、きらきら音を鳴らします
-            if (animationId === null) {
-                startSound.currentTime = 0;
-                startSound.play();
-            }
+        // 🌟 画面中央の「START/RESTART」メッセージをクリックした時の処理
+        if (e.target.closest('#message')) {
+            startSound.currentTime = 0;
+            startSound.play();
+            initGame(); 
+            return;
+        }
+
+        // 🌟 通常のプレイ中（サンタを上昇させる処理）
+        if (!isGameOver) {
             isPressing = true; 
         }
     }
+
     function handleMouseUp(e) {
         if (e.button === 2) return;
         isPressing = false; 
@@ -373,10 +394,6 @@
         particles.forEach(p => p.element.remove());
         particles = [];
         // 👆 ここまで追加
-
-        // 🍏【追加】ゲームがリスタート（初期化）される瞬間に「きらきら音」を鳴らします！
-        startSound.currentTime = 0;
-        startSound.play();
 
 　　　　// 🌟👇 ここから：最高得点を読み込んで画面に表示する処理を追加します
 　　    const savedBest = localStorage.getItem('santa_best_score') || 0;
@@ -581,7 +598,7 @@
             // 🌟👆 ここまで追加
 
             spawnTarget();
-            if (gameSpeed < 30) gameSpeed += 0.08; /* 👈 アイテムが流れてくる最大速度と加速する度合い */
+            if (gameSpeed < 16) gameSpeed += 0.08; /* 👈 アイテムが流れてくる最大速度と加速する度合い */
         }
 
         animationId = requestAnimationFrame(gameLoop);
